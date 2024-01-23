@@ -76,6 +76,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Run configure script
+        if: ${{ matrix.arch != 'arm' }}
         uses: addnab/docker-run-action@v3
         with:
           image: curl-impersonate-builder
@@ -87,6 +88,24 @@ jobs:
             set -e
             mkdir ${{ runner.temp }}/install
             ./configure --prefix=${{ runner.temp }}/install \
+                        --with-ca-path=/etc/ssl/certs \
+                        --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
+                        --with-libnssckbi=/usr/lib/${{ matrix.host }}/nss
+
+      - name: Run configure script (arm)
+        if: ${{ matrix.arch == 'arm' }}
+        uses: addnab/docker-run-action@v3
+        with:
+          image: curl-impersonate-builder
+          options: >
+            -v ${{ env.runner_home }}:${{ env.runner_home }}
+            --workdir ${{ github.workspace }}
+            --user ${{ env.runner_uid }}:${{ env.runner_gid }}
+          run: |
+            set -e
+            mkdir ${{ runner.temp }}/install
+            ./configure CFLAGS="--with-arch=armv6 --with-fpu=vfp --with-float=hard" \
+                        --prefix=${{ runner.temp }}/install \
                         --with-ca-path=/etc/ssl/certs \
                         --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
                         --with-libnssckbi=/usr/lib/${{ matrix.host }}/nss
