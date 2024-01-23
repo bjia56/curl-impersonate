@@ -104,7 +104,7 @@ jobs:
           run: |
             set -e
             mkdir ${{ runner.temp }}/install
-            ./configure CFLAGS="--with-arch=armv6 --with-fpu=vfp --with-float=hard" \
+            ./configure CFLAGS="-march=armv6 -mfpu=vfp -mfloat-abi=hard" \
                         --prefix=${{ runner.temp }}/install \
                         --with-ca-path=/etc/ssl/certs \
                         --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
