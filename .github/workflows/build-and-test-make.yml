@@ -49,6 +49,7 @@ jobs:
         uses: docker/setup-qemu-action@v2
 
       - name: Install dependencies
+        if: ${{ matrix.arch != 'arm' }}
         run: |
           python_bin_dir=$(docker run ${{ matrix.image }} python3.10 -c 'import sys; import os; print(os.path.dirname(os.path.realpath(sys.executable)))')
           echo "runner_uid=$(id -u)" >> $GITHUB_ENV
@@ -60,7 +61,28 @@ jobs:
             ENV HOME=$HOME
             ENV CC=/opt/rh/devtoolset-10/root/usr/bin/gcc
             ENV CXX=/opt/rh/devtoolset-10/root/usr/bin/g++
-            ENV LD=/usr/bin/ld
+            ENV LD=/opt/rh/devtoolset-10/root/usr/bin/ld
+            RUN yum install -y libcurl-devel
+            RUN python3.10 -m pip install ninja cmake gyp-next --extra-index-url https://bjia56.github.io/armv7l-wheels/
+            RUN rm -rf /usr/local/go && \
+                curl -o /tmp/go.tar.gz -L https://go.dev/dl/go1.19.10.linux-${{ matrix.go_arch }}.tar.gz && \
+                tar -C /usr/local -xzf /tmp/go.tar.gz
+            RUN rm -f /usr/local/bin/python3 && \
+                rm -f /usr/local/bin/python && \
+                ln -s /usr/local/bin/python3.10 /usr/local/bin/python3 && \
+                ln -s /usr/local/bin/python3.10 /usr/local/bin/python
+          EOF
+
+      - name: Install dependencies (arm)
+        if: ${{ matrix.arch == 'arm' }}
+        run: |
+          docker build -t curl-impersonate-builder -f - . <<EOF
+            FROM ${{ matrix.image }}
+            ENV PATH=/usr/local/go/bin:/opt/cross-pi-gcc/bin:/opt/rh/devtoolset-10/root/usr/bin:$python_bin_dir:\$PATH
+            ENV HOME=$HOME
+            ENV CC=/opt/cross-pi-gcc/bin/arm-linux-gnueabihf-gcc
+            ENV CXX=/opt/cross-pi-gcc/bin/arm-linux-gnueabihf-g++
+            ENV LD=/opt/cross-pi-gcc/bin/arm-linux-gnueabihf-ld
             RUN yum install -y libcurl-devel
             RUN python3.10 -m pip install ninja cmake gyp-next --extra-index-url https://bjia56.github.io/armv7l-wheels/
             RUN rm -rf /usr/local/go && \
@@ -76,7 +98,6 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Run configure script
-        if: ${{ matrix.arch != 'arm' }}
         uses: addnab/docker-run-action@v3
         with:
           image: curl-impersonate-builder
@@ -88,24 +109,6 @@ jobs:
             set -e
             mkdir ${{ runner.temp }}/install
             ./configure --prefix=${{ runner.temp }}/install \
-                        --with-ca-path=/etc/ssl/certs \
-                        --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
-                        --with-libnssckbi=/usr/lib/${{ matrix.host }}/nss
-
-      - name: Run configure script (arm)
-        if: ${{ matrix.arch == 'arm' }}
-        uses: addnab/docker-run-action@v3
-        with:
-          image: curl-impersonate-builder
-          options: >
-            -v ${{ env.runner_home }}:${{ env.runner_home }}
-            --workdir ${{ github.workspace }}
-            --user ${{ env.runner_uid }}:${{ env.runner_gid }}
-          run: |
-            set -e
-            mkdir ${{ runner.temp }}/install
-            ./configure CFLAGS="-march=armv6 -mfpu=vfp -mfloat-abi=hard" \
-                        --prefix=${{ runner.temp }}/install \
                         --with-ca-path=/etc/ssl/certs \
                         --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
                         --with-libnssckbi=/usr/lib/${{ matrix.host }}/nss
