@@ -76,6 +76,10 @@ jobs:
       - name: Install dependencies (arm)
         if: ${{ matrix.arch == 'arm' }}
         run: |
+          python_bin_dir=$(docker run ${{ matrix.image }} python3.10 -c 'import sys; import os; print(os.path.dirname(os.path.realpath(sys.executable)))')
+          echo "runner_uid=$(id -u)" >> $GITHUB_ENV
+          echo "runner_gid=$(id -g)" >> $GITHUB_ENV
+          echo "runner_home=$HOME" >> $GITHUB_ENV
           docker build -t curl-impersonate-builder -f - . <<EOF
             FROM ${{ matrix.image }}
             ENV PATH=/usr/local/go/bin:/opt/cross-pi-gcc/bin:/opt/rh/devtoolset-10/root/usr/bin:$python_bin_dir:\$PATH
